@@ -1,0 +1,26 @@
+SOURCE_FILES := \
+	src/main.c
+
+INCLUDE_DIRS := \
+	. \
+	../src \
+	$(addprefix $(IDF_PATH)/components/spi_flash/sim/stubs/, \
+	app_update/include \
+	driver/include \
+	esp32/include \
+	freertos/include \
+	log/include \
+	newlib/include \
+	sdmmc/include \
+	vfs/include \
+	) \
+	$(addprefix $(IDF_PATH)/components/, \
+	soc/esp32/include \
+	esp32/include \
+	bootloader_support/include \
+	app_update/include \
+	spi_flash/include \
+	wear_levelling/include \
+	fatfs/src \
+    fatfs/test_fatfs_host/sdkconfig \
+	)

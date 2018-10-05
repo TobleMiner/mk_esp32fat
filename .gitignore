@@ -1,0 +1,4 @@
+mkfatfs
+*.bak
+*.o
+build
