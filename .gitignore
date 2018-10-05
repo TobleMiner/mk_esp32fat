@@ -2,3 +2,4 @@ mkfatfs
 *.bak
 *.o
 build
+partition_table.bin
