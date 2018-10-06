@@ -174,7 +174,7 @@ void show_usage(char* prgrm) {
 	fprintf(stderr, "Usage: %s [-c <fatfs directory>] [-t <partition table>] [-l <partition label>] <fatfs image name>\n", prgrm);
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "\t -c <fatfs directory>\tSet directory to build fatfs from to <fatfs directory>. Defaults to '%s'\n", DEFAULT_IMAGE_DIR);
-	fprintf(stderr, "\t -t <partition table>\tSet file to read parition table from to <partition table>. Defaults to '%s'\n", DEFAULT_PARTITION_TABLE);
+	fprintf(stderr, "\t -t <partition table>\tSet file to read partition table from to <partition table>. Defaults to '%s'\n", DEFAULT_PARTITION_TABLE);
 	fprintf(stderr, "\t -l <partition label>\tSet label of partition from partition table to use to <partition label>. Defaults to '%s'\n", DEFAULT_PARTITION_LABEL);
 };
 
