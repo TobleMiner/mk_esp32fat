@@ -3,7 +3,7 @@ ESP32 wear leveling mkfatfs
 
 This tool creates ESP32 fatfs images with wear levelling support.
 
-# Usage
+# Operation
 
 ## Requirements
 
