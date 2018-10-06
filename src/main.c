@@ -232,6 +232,13 @@ int main(int argc, char** argv) {
 		}
 	}
 
+	if(optind >= argc) {
+		fprintf(stderr, "Missing required positional argument <fatfs image name>\n");
+		show_usage(argv[0]);
+		err = -1;
+		goto fail;
+	}
+
 	if(!file_exists(image_src_dir)) {
 		err = EINVAL;
 		fprintf(stderr, "Fatfs root directory '%s' does not exist\n", image_src_dir);
@@ -241,13 +248,6 @@ int main(int argc, char** argv) {
 	if(!file_exists(partition_table)) {
 		err = EINVAL;
 		fprintf(stderr, "Partition table file '%s' does not exist\n", partition_table);
-		goto fail;
-	}
-
-	if(optind >= argc) {
-		fprintf(stderr, "Missing required positional argument <fatfs image name>\n");
-		show_usage(argv[0]);
-		err = -1;
 		goto fail;
 	}
 
