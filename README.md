@@ -40,7 +40,7 @@ To flash the image to your ESP run
 python2 "$IDF_PATH"/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 230400 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 4MB 0x130000 fatfs.img
 ```
 
-Depending on your partition layout you might have to update the value passed via the `--address` argument
+Depending on your partition layout you might have to update the address argument in above command
 
 
 # Limitations
