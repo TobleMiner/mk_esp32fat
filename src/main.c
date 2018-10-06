@@ -17,6 +17,7 @@
 #define MAX_PATH_LEN 256
 #define DEFAULT_IMAGE_DIR "image"
 #define DEFAULT_PARTITION_TABLE "partition_table.bin"
+#define DEFAULT_PARTITION_LABEL "storage"
 
 extern void _spi_flash_init(const char* chip_size, size_t block_size, size_t sector_size, size_t page_size, const char* partition_bin);
 
@@ -170,10 +171,11 @@ static esp_err_t file_exists(const char* name) {
 }
 
 void show_usage(char* prgrm) {
-	fprintf(stderr, "Usage: %s [-c <fatfs directory>] [-t <partition table>] <fatfs image name>\n", prgrm);
+	fprintf(stderr, "Usage: %s [-c <fatfs directory>] [-t <partition table>] [-l <partition label>] <fatfs image name>\n", prgrm);
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "\t -c <fatfs directory>\tSet directory to build fatfs from to <fatfs directory>. Defaults to '%s'\n", DEFAULT_IMAGE_DIR);
 	fprintf(stderr, "\t -t <partition table>\tSet file to read parition table from to <partition table>. Defaults to '%s'\n", DEFAULT_PARTITION_TABLE);
+	fprintf(stderr, "\t -l <partition label>\tSet label of partition from partition table to use to <partition label>. Defaults to '%s'\n", DEFAULT_PARTITION_LABEL);
 };
 
 int main(int argc, char** argv) {
@@ -194,8 +196,9 @@ int main(int argc, char** argv) {
 	char* image_src_dir = DEFAULT_IMAGE_DIR;
 	const char* fatfs_image;
 	const char* partition_table = DEFAULT_PARTITION_TABLE;
+	const char* partition_label = DEFAULT_PARTITION_LABEL;
 
-	while((opt = getopt(argc, argv, "c:t:h")) >= 0) {
+	while((opt = getopt(argc, argv, "c:t:l:h")) >= 0) {
 		switch(opt) {
 			case 'c':
 				image_src_dir = strdup(optarg);
@@ -210,6 +213,14 @@ int main(int argc, char** argv) {
 				if(!partition_table) {
 					err = ENOMEM;
 					fprintf(stderr, "Failed to allocate memory for partition_table\n");
+					goto fail;
+				}
+				break;
+			case 'l':
+				partition_label = strdup(optarg);
+				if(!partition_label) {
+					err = ENOMEM;
+					fprintf(stderr, "Failed to allocate memory for partition_label\n");
 					goto fail;
 				}
 				break;
@@ -244,7 +255,12 @@ int main(int argc, char** argv) {
 
 	_spi_flash_init(CONFIG_ESPTOOLPY_FLASHSIZE, CONFIG_WL_SECTOR_SIZE * 16, CONFIG_WL_SECTOR_SIZE, CONFIG_WL_SECTOR_SIZE, partition_table);
 
-	partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "storage");
+	partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, partition_label);
+	if(!partition) {
+		err = ENOENT;
+		fprintf(stderr, "No partition with label '%s' found\n", partition_label);
+		goto fail;
+	}
 
 	// Mount wear-levelled partition
 	if((err = wl_mount(partition, &wl_handle))) {
