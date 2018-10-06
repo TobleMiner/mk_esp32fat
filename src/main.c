@@ -20,276 +20,248 @@ extern esp_err_t spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_mem
 
 extern size_t convert_chip_size_string(const char* chip_size_str);
 
-static esp_err_t __fat_add_path(char* local_prefix, char* dir, char* name);
+static esp_err_t fat_add_path(char* local_path, char* fat_path);
 
 #define DIRENT_FOR_EACH(cursor, dir) \
     for((cursor) = readdir((dir)); (cursor); (cursor) = readdir((dir)))
 
-static char* pathcat(char* base, char* name) {
-	size_t len = strlen(base) + 1 + strlen(name) + 1;
-	char* str = calloc(1, len);
-	if(!str) {
-		return NULL;
-	}
-	strcat(str, base);
-	strcat(str, "/");
-	strcat(str, name);
-	return str;
+#define MAX_PATH_LEN 256
+
+static void pathcat(char* path, size_t path_len, char* base, char* name) {
+	memset(path, 0, path_len);
+	snprintf(path, path_len, "%s/%s", base, name);
 }
 
-static void fat_normalize_name(char* name) {
-	if(name[0] == '/') {
-		memmove(name, name + 1, strlen(name));
-	}
-}
-
-static esp_err_t fat_add_file(char* local_prefix, char* path) {
+static esp_err_t fat_add_file(char* local_path, char* fat_path) {
 	FIL file;
 	int fd;
 	ssize_t len;
 	char buffer[4096];
 	esp_err_t err = ESP_OK;
-	printf("Adding static file from '%s/%s' as %s\n", local_prefix, path, path);
-	char* local_path = pathcat(local_prefix, path);
-	if(!local_path) {
-		err = -ENOMEM;
+
+	printf("\tAdding file '%s' => '%s'\n", local_path, fat_path);
+
+	if((err = f_open(&file, fat_path, FA_OPEN_ALWAYS | FA_READ | FA_WRITE))) {
+		printf("Failed to open file '%s' on fatfs: %d\n", fat_path, err);
 		goto fail;
 	}
 
-	fat_normalize_name(path);
-
-	printf("Creating file on fatfs: '%s'\n", path);
-	if((err = f_open(&file, path, FA_OPEN_ALWAYS | FA_READ | FA_WRITE))) {
-		printf("Failed to open file on fatfs: %d\n", err);
-		goto fail_local_alloc;
-	}
-
 	if((fd = open(local_path, O_RDONLY)) < 0) {
-		printf("Failed to open file on local fs\n");
+		fprintf(stderr, "Failed to open file on local fs\n");
 		err = fd;
 		goto fail_fat_open;
 	}
 
+	// Read data chunkwise and write it to the wear leveling fatfs
 	while((len = read(fd, buffer, sizeof(buffer))) > 0) {
 		ssize_t remainder = len;
 		while(remainder > 0) {
 			UINT wrlen;
-			if((err = f_write(&file, buffer + len - remainder, remainder, &wrlen)) != FR_OK) {
-				printf("Failed to write to fat fs\n");
-				goto fail_fat_open;			
+			if((err = f_write(&file, buffer + len - remainder, remainder, &wrlen))) {
+				fprintf(stderr, "Failed to write to fat fs: %d\n", err);
+				goto fail_local_open;
 			}
 			remainder -= wrlen;
 		}
 	}
 
+	err = ESP_OK;
 	if(len < 0) {
-		printf("Faled to read from fd\n");
-		err = -len;
-	} else {
-		printf("fd read ok\n");
-		err = ESP_OK;
+		err = errno;
+		fprintf(stderr, "Faled to read from local file: %s(%d)\n", strerror(err), err);
 	}
 
+fail_local_open:
+	close(fd);
 fail_fat_open:
 	f_close(&file);
-fail_local_alloc:
-	free(local_path);
 fail:
 	return err;
 }
 
-#define fat_add_directory(local_prefix, path) \
-	__fat_add_directory(local_prefix, path, false)
-
-static esp_err_t __fat_add_directory(char* local_prefix, char* path, bool do_not_create_dirs) {
+static esp_err_t fat_add_directory_contents(char* local_path, char* fat_path) {
 	esp_err_t err = ESP_OK;
 	struct dirent* cursor;
-	DIR* dir;
-	FILINFO finfo;
-	char* local_path = pathcat(local_prefix, path);
-	if(!local_path) {
-		err = -ENOMEM;
+	DIR* dir = opendir(local_path);
+	if(!dir) {
+		err = errno;
 		goto fail;
 	}
 
-	printf("Adding directory from '%s' as %s\n", local_path, path);
-
-	fat_normalize_name(path);
-
-	if(!do_not_create_dirs) {
-		if(!(err = f_stat(path, &finfo))) {
-			printf("Unlinking file '%s'\n", path);
-			if((err = f_unlink(path))) {
-				goto fail_path_alloc;
-			}
-		}
-
-		printf("Creating directory '%s'\n", path);
-		if((err = f_mkdir(path))) {
-			goto fail_path_alloc;
-		}
-	}
-
-	printf("Opening directory '%s' ...\n", path);
-	dir = opendir(local_path);
-	if(!dir) {
-		err = errno;
-		goto fail_path_alloc;
-	}
-	printf("Opened directory\n");
+	// readdir does not touch errno on success, thus we should set it to zero
+	errno = 0;
 	DIRENT_FOR_EACH(cursor, dir) {
-		printf("Iterating over directory, ent: %p\n", cursor);
-		if(!strcmp(cursor->d_name, ".") || !strcmp(cursor->d_name, "..")) {
-			printf("Found reference to current/parent directory, skipping\n");
-			continue;
-		}
+		/* Putting this on stack might be a problem when using large,
+		 * deeply nested fs images, maybe we should move it to heap?
+		 */
+		char local_entry_path[MAX_PATH_LEN];
+		char fat_entry_path[MAX_PATH_LEN];
+
 		if(!cursor) {
 			err = errno;
 			break;
 		}
-		if((err = __fat_add_path(local_prefix, path, cursor->d_name))) {
-			goto fail_path_alloc;
+
+		// Ingore current and parent directory
+		if(!strcmp(cursor->d_name, ".") || !strcmp(cursor->d_name, "..")) {
+			continue;
+		}
+
+		pathcat(local_entry_path, sizeof(local_entry_path), local_path, cursor->d_name);
+		pathcat(fat_entry_path, sizeof(fat_entry_path), fat_path, cursor->d_name);
+		if((err = fat_add_path(local_entry_path, fat_entry_path))) {
+			goto fail;
 		}
 	}
 
-fail_path_alloc:
-	free(local_path);
 fail:
-	printf("Closing directory\n");
 	closedir(dir);
 	return err;
 }
 
-static esp_err_t __fat_add_path(char* local_prefix, char* dir, char* name) {
-	esp_err_t err;
-	struct stat pathinfo;
-	char* local_path;
-	char* path = name;
-	if(dir) {
-		path = pathcat(dir, name);
-		if(!path) {
-			err = ENOMEM;
+static esp_err_t fat_add_directory(char* local_path, char* fat_path) {
+	esp_err_t err = ESP_OK;
+	FILINFO finfo;
+
+	if(!(err = f_stat(fat_path, &finfo))) {
+		if((err = f_unlink(fat_path))) {
+			fprintf(stderr, "Failed to unlink '%s'\n", fat_path);
 			goto fail;
 		}
 	}
-	local_path = pathcat(local_prefix, path);
-	if(!local_path) {
-		err = -ENOMEM;
-		goto fail_alloc;
+
+	printf("\tAdding directory '%s' => '%s'\n", local_path, fat_path);
+	if((err = f_mkdir(fat_path))) {
+		goto fail;
 	}
 
-	printf("Stating '%s'\n", local_path);
+	err = fat_add_directory_contents(local_path, fat_path);
+
+fail:
+	return err;
+}
+
+static esp_err_t fat_add_path(char* local_path, char* fat_path) {
+	esp_err_t err;
+	struct stat pathinfo;
+
 	if(stat(local_path, &pathinfo)) {
 		printf("Stat failed: %s(%d)\n", strerror(errno), errno);
 		err = errno;
-		goto fail_local_alloc;
+		goto fail;
 	}
-	printf("Stat ok\n");
+
 	if(pathinfo.st_mode & S_IFDIR) {
-		printf("Stat: dir\n");
-		err = fat_add_directory(local_prefix, path);
+		err = fat_add_directory(local_path, fat_path);
 	} else if(pathinfo.st_mode & S_IFREG) {
-		printf("Stat: file\n");
-		err = fat_add_file(local_prefix, path);
+		err = fat_add_file(local_path, fat_path);
 	} else {
 		err = EINVAL;
 	}
 
-fail_local_alloc:
-	free(local_path);
-fail_alloc:
-	if(dir) {
-		free(path);
-	}
 fail:
 	return err;
 
 }
-
-#define fat_add_path(local_prefix, name) \
-	__fat_add_path(local_prefix, NULL, name)
 
 int main(int argc, char** argv) {
 	esp_err_t err;
 	int fd;
 	char* flash_ptr;
+	size_t offset = 0;
 	spi_flash_mmap_handle_t hndl;
-
-    _spi_flash_init(CONFIG_ESPTOOLPY_FLASHSIZE, CONFIG_WL_SECTOR_SIZE * 16, CONFIG_WL_SECTOR_SIZE, CONFIG_WL_SECTOR_SIZE, "partition_table.bin");
-
+    wl_handle_t wl_handle;
     FRESULT fr_result;
     BYTE pdrv;
     FATFS fs;
     UINT bw;
-
-    esp_err_t esp_result;
-
-    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "storage");
-    
-    // Mount wear-levelled partition
-    wl_handle_t wl_handle;
-    esp_result = wl_mount(partition, &wl_handle);
-    assert(esp_result == ESP_OK);
-    printf("Mounted wear-leavelled partition\n");
-
-    // Get a physical drive
-    esp_result = ff_diskio_get_drive(&pdrv);
-    assert(esp_result == ESP_OK);
-
-    // Register physical drive as wear-levelled partition
-    esp_result = ff_diskio_register_wl_partition(pdrv, wl_handle);
-
-    // Create FAT volume on the entire disk
     DWORD part_list[] = {100, 0, 0, 0};
     BYTE work_area[FF_MAX_SS];
+	esp_partition_t* partition;
 
-    fr_result = f_fdisk(pdrv, part_list, work_area);
-    assert(fr_result == FR_OK);
-    fr_result = f_mkfs("", FM_ANY, 0, work_area, sizeof(work_area)); // Use default volume
+    _spi_flash_init(CONFIG_ESPTOOLPY_FLASHSIZE, CONFIG_WL_SECTOR_SIZE * 16, CONFIG_WL_SECTOR_SIZE, CONFIG_WL_SECTOR_SIZE, "partition_table.bin");
 
-    // Mount the volume
-    fr_result = f_mount(&fs, "", 0);
-    assert(fr_result == FR_OK);
-
-	err = __fat_add_directory("image", "", true);
-	printf("Return value: %d\n", err);
-	assert(err == ESP_OK);
-
-	spi_flash_mmap(0, 0, 0, &flash_ptr, &hndl);
-
-	flash_ptr += partition->address;
-
-	size_t offset = 0;
-
-	const char* fatfs_image = "fatfs.img";
-
-	printf("Saving to '%s'\n", fatfs_image);
-	if((fd = open(fatfs_image, O_RDWR | O_CREAT)) < 0) {
-		err = errno;
-		printf("Failed to open image file: %s(%d)\n", strerror(err), err);
+    partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "storage");
+    
+    // Mount wear-levelled partition
+	if((err = wl_mount(partition, &wl_handle))) {
+		fprintf(stderr, "Failed to mount partition: %d\n", err);
 		goto fail;
 	}
 
-	printf("Saving %zu bytes\n", partition->size);
+
+    // Get emulated physical drive
+    if((err = ff_diskio_get_drive(&pdrv))) {
+		fprintf(stderr, "Failed to get emulated drive: %d\n", err);
+		goto fail_mount;
+	}
+
+	// Get wear leveling partition wrapper
+    if((err = ff_diskio_register_wl_partition(pdrv, wl_handle))) {
+		fprintf(stderr, "Failed to get wear leveling wrapper for patition: %d\n", err);
+		goto fail_mount;
+	}
+
+	// Create fatfs partition table
+    if((fr_result = f_fdisk(pdrv, part_list, work_area))) {
+		err = fr_result;
+		fprintf(stderr, "Failed to create fatfs partition table: %d\n", err);
+		goto fail_mount;
+	}
+
+	// Create fatfs fat filesystem
+	if((fr_result = f_mkfs("", FM_ANY, 0, work_area, sizeof(work_area)))) {
+		err = fr_result;
+		fprintf(stderr, "Failed to create fatfs filesystem: %d\n", err);
+		goto fail_mount;
+	}
+
+	if((fr_result = f_mount(&fs, "", 0))) {
+		err = fr_result;
+		fprintf(stderr, "Failed to mount fatfs filesystem: %d\n", err);
+		goto fail_mount;
+	}
+
+	printf("Adding files:\n");
+	if((err = fat_add_directory_contents("image", ""))) {
+		fprintf(stderr, "Failed to add files to fat image: %d\n", err);
+		goto fail_mount;
+
+	}
+
+	// Use mmap stub wrapper to obtain pointer to flash memory buffer
+	spi_flash_mmap(0, 0, 0, (const void**)&flash_ptr, &hndl);
+
+	// Move pointer to start of data partition
+	flash_ptr += partition->address;
+
+	const char* fatfs_image = "fatfs.img";
+
+	printf("Saving fatfs image to '%s'\n", fatfs_image);
+	if((fd = open(fatfs_image, O_RDWR | O_CREAT)) < 0) {
+		err = errno;
+		fprintf(stderr, "Failed to open image file: %s(%d)\n", strerror(err), err);
+		goto fail_mount;
+	}
+
+	printf("Saving %zu bytes to file\n", partition->size);
 
 	while(offset < partition->size) {
 		ssize_t write_len = write(fd, flash_ptr + offset, partition->size - offset);
 		if(write_len < 0) {
 			err = errno;
-			printf("Failed to write image file: %s(%d)\n", strerror(err), err);
-			goto fail;
+			fprintf(stderr, "Failed to write image file: %s(%d)\n", strerror(err), err);
+			goto fail_image_open;
 		}
 		offset += write_len;
 	} 
 
+	printf("Image complete\n");
+
+fail_image_open:
 	close(fd);
-
-	printf("Image write successful\n");
-
-    // Unmount default volume
-    fr_result = f_mount(0, "", 0);
-    assert(fr_result == FR_OK);
-
+fail_mount:
+    f_mount(0, "", 0);
 fail:
     return err;
 }
