@@ -198,6 +198,11 @@ int main(int argc, char** argv) {
 	while((opt = getopt(argc, argv, "c:t:h")) >= 0) {
 		switch(opt) {
 			case 'c':
+				if(!file_exists(optarg)) {
+					err = EINVAL;
+					fprintf(stderr, "Fatfs root directory '%s' does not exist\n", optarg);
+					goto fail;
+				}
 				image_src_dir = strdup(optarg);
 				if(!image_src_dir) {
 					err = ENOMEM;
