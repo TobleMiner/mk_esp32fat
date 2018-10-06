@@ -16,7 +16,7 @@ If you do run into issues building the tool check that the environment variable 
 At the moment configuration is done via the file `sdkconfig/sdkconfig.h`. I plan on adding a menuconfig though.
 See section Limitations at the end of this docuemnt for limits on valid configuration values.
 
-**IMPORATNT**: Do not forget to place your partition table in the file `partitions.csv`
+**IMPORTANT**: Do not forget to place your partition table in the file `partitions.csv`
 
 
 ## Building 
