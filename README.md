@@ -1,4 +1,4 @@
-ESP32 wear leveling mkfatfs
+ESP32 wear levelling mkfatfs
 ===========================
 
 This tool creates ESP32 fatfs images with wear levelling support.
@@ -28,7 +28,7 @@ This will create the tool binary called `mkfatfs`
 
 ## Usage
 
-To build a fatfs image with wear leveling support just place all files you want to have in you fatfs in a directory and run
+To build a fatfs image with wear levelling support just place all files you want to have in you fatfs in a directory and run
 
 `./mkfatfs -c <dir name here> fatfs.img`
 

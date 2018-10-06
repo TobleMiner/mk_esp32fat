@@ -51,7 +51,7 @@ static esp_err_t fat_add_file(char* local_path, char* fat_path) {
 		goto fail_fat_open;
 	}
 
-	// Read data chunkwise and write it to the wear leveling fatfs
+	// Read data chunkwise and write it to the wear levelling fatfs
 	while((len = read(fd, buffer, sizeof(buffer))) > 0) {
 		ssize_t remainder = len;
 		while(remainder > 0) {
@@ -231,9 +231,9 @@ int main(int argc, char** argv) {
 		goto fail_mount;
 	}
 
-	// Get wear leveling partition wrapper
+	// Get wear levelling partition wrapper
 	if((err = ff_diskio_register_wl_partition(pdrv, wl_handle))) {
-		fprintf(stderr, "Failed to get wear leveling wrapper for patition: %d\n", err);
+		fprintf(stderr, "Failed to get wear levelling wrapper for patition: %d\n", err);
 		goto fail_mount;
 	}
 
