@@ -177,7 +177,7 @@ int main(int argc, char** argv) {
     UINT bw;
     DWORD part_list[] = {100, 0, 0, 0};
     BYTE work_area[FF_MAX_SS];
-	esp_partition_t* partition;
+	const esp_partition_t* partition;
 
     _spi_flash_init(CONFIG_ESPTOOLPY_FLASHSIZE, CONFIG_WL_SECTOR_SIZE * 16, CONFIG_WL_SECTOR_SIZE, CONFIG_WL_SECTOR_SIZE, "partition_table.bin");
 
