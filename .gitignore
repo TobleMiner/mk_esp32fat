@@ -3,3 +3,4 @@ mkfatfs
 *.o
 build
 partition_table.bin
+*.img
