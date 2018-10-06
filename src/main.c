@@ -16,6 +16,7 @@
 
 #define MAX_PATH_LEN 256
 #define DEFAULT_IMAGE_DIR "image"
+#define DEFAULT_PARTITION_TABLE "partition_table.bin"
 
 extern void _spi_flash_init(const char* chip_size, size_t block_size, size_t sector_size, size_t page_size, const char* partition_bin);
 
@@ -163,10 +164,16 @@ fail:
 
 }
 
+static esp_err_t file_exists(char* name) {
+	struct stat pathinfo;
+	return !stat(name, &pathinfo);
+}
+
 void show_usage(char* prgrm) {
-	fprintf(stderr, "Usage: %s [-c <fatfs directory>] <fatfs image name>\n", prgrm);
+	fprintf(stderr, "Usage: %s [-c <fatfs directory>] [-t <partition table>] <fatfs image name>\n", prgrm);
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "\t -c <fatfs directory>\tSet directory to build fatfs from to <fatfs directory>. Defaults to '%s'\n", DEFAULT_IMAGE_DIR);
+	fprintf(stderr, "\t -t <partition table>\tSet file to read parition table from to <partition table>. Defaults to '%s'\n", DEFAULT_PARTITION_TABLE);
 };
 
 int main(int argc, char** argv) {
@@ -186,14 +193,28 @@ int main(int argc, char** argv) {
 
 	char* image_src_dir = DEFAULT_IMAGE_DIR;
 	const char* fatfs_image;
+	const char* partition_table = DEFAULT_PARTITION_TABLE;
 
-	while((opt = getopt(argc, argv, "c:h")) >= 0) {
+	while((opt = getopt(argc, argv, "c:t:h")) >= 0) {
 		switch(opt) {
 			case 'c':
 				image_src_dir = strdup(optarg);
 				if(!image_src_dir) {
 					err = ENOMEM;
 					fprintf(stderr, "Failed to allocate memory for image_src_dir\n");
+					goto fail;
+				}
+				break;
+			case 't':
+				if(!file_exists(optarg)) {
+					err = EINVAL;
+					fprintf(stderr, "Partition table file '%s' does not exist\n", optarg);
+					goto fail;
+				}
+				partition_table = strdup(optarg);
+				if(!partition_table) {
+					err = ENOMEM;
+					fprintf(stderr, "Failed to allocate memory for partition_table\n");
 					goto fail;
 				}
 				break;
@@ -214,7 +235,7 @@ int main(int argc, char** argv) {
 
 	fatfs_image = argv[optind];
 
-	_spi_flash_init(CONFIG_ESPTOOLPY_FLASHSIZE, CONFIG_WL_SECTOR_SIZE * 16, CONFIG_WL_SECTOR_SIZE, CONFIG_WL_SECTOR_SIZE, "partition_table.bin");
+	_spi_flash_init(CONFIG_ESPTOOLPY_FLASHSIZE, CONFIG_WL_SECTOR_SIZE * 16, CONFIG_WL_SECTOR_SIZE, CONFIG_WL_SECTOR_SIZE, partition_table);
 
 	partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "storage");
 
