@@ -164,7 +164,7 @@ fail:
 
 }
 
-static esp_err_t file_exists(char* name) {
+static esp_err_t file_exists(const char* name) {
 	struct stat pathinfo;
 	return !stat(name, &pathinfo);
 }
@@ -198,11 +198,6 @@ int main(int argc, char** argv) {
 	while((opt = getopt(argc, argv, "c:t:h")) >= 0) {
 		switch(opt) {
 			case 'c':
-				if(!file_exists(optarg)) {
-					err = EINVAL;
-					fprintf(stderr, "Fatfs root directory '%s' does not exist\n", optarg);
-					goto fail;
-				}
 				image_src_dir = strdup(optarg);
 				if(!image_src_dir) {
 					err = ENOMEM;
@@ -211,11 +206,6 @@ int main(int argc, char** argv) {
 				}
 				break;
 			case 't':
-				if(!file_exists(optarg)) {
-					err = EINVAL;
-					fprintf(stderr, "Partition table file '%s' does not exist\n", optarg);
-					goto fail;
-				}
 				partition_table = strdup(optarg);
 				if(!partition_table) {
 					err = ENOMEM;
@@ -229,6 +219,18 @@ int main(int argc, char** argv) {
 				err = -1;
 				goto fail;
 		}
+	}
+
+	if(!file_exists(image_src_dir)) {
+		err = EINVAL;
+		fprintf(stderr, "Fatfs root directory '%s' does not exist\n", image_src_dir);
+		goto fail;
+	}
+
+	if(!file_exists(partition_table)) {
+		err = EINVAL;
+		fprintf(stderr, "Partition table file '%s' does not exist\n", partition_table);
+		goto fail;
 	}
 
 	if(optind >= argc) {
