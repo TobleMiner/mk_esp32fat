@@ -41,7 +41,7 @@ static esp_err_t fat_add_file(char* local_path, char* fat_path) {
 	printf("\tAdding file '%s' => '%s'\n", local_path, fat_path);
 
 	if((err = f_open(&file, fat_path, FA_OPEN_ALWAYS | FA_READ | FA_WRITE))) {
-		printf("Failed to open file '%s' on fatfs: %d\n", fat_path, err);
+		fprintf(stderr, "Failed to open file '%s' on fatfs: %d\n", fat_path, err);
 		goto fail;
 	}
 
