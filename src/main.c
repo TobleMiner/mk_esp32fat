@@ -23,7 +23,7 @@ extern size_t convert_chip_size_string(const char* chip_size_str);
 static esp_err_t fat_add_path(char* local_path, char* fat_path);
 
 #define DIRENT_FOR_EACH(cursor, dir) \
-    for((cursor) = readdir((dir)); (cursor); (cursor) = readdir((dir)))
+	for((cursor) = readdir((dir)); (cursor); (cursor) = readdir((dir)))
 
 #define MAX_PATH_LEN 256
 
@@ -170,40 +170,40 @@ int main(int argc, char** argv) {
 	char* flash_ptr;
 	size_t offset = 0;
 	spi_flash_mmap_handle_t hndl;
-    wl_handle_t wl_handle;
-    FRESULT fr_result;
-    BYTE pdrv;
-    FATFS fs;
-    UINT bw;
-    DWORD part_list[] = {100, 0, 0, 0};
-    BYTE work_area[FF_MAX_SS];
+	wl_handle_t wl_handle;
+	FRESULT fr_result;
+	BYTE pdrv;
+	FATFS fs;
+	UINT bw;
+	DWORD part_list[] = {100, 0, 0, 0};
+	BYTE work_area[FF_MAX_SS];
 	const esp_partition_t* partition;
 
-    _spi_flash_init(CONFIG_ESPTOOLPY_FLASHSIZE, CONFIG_WL_SECTOR_SIZE * 16, CONFIG_WL_SECTOR_SIZE, CONFIG_WL_SECTOR_SIZE, "partition_table.bin");
+	_spi_flash_init(CONFIG_ESPTOOLPY_FLASHSIZE, CONFIG_WL_SECTOR_SIZE * 16, CONFIG_WL_SECTOR_SIZE, CONFIG_WL_SECTOR_SIZE, "partition_table.bin");
 
-    partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "storage");
-    
-    // Mount wear-levelled partition
+	partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "storage");
+
+	// Mount wear-levelled partition
 	if((err = wl_mount(partition, &wl_handle))) {
 		fprintf(stderr, "Failed to mount partition: %d\n", err);
 		goto fail;
 	}
 
 
-    // Get emulated physical drive
-    if((err = ff_diskio_get_drive(&pdrv))) {
+	// Get emulated physical drive
+	if((err = ff_diskio_get_drive(&pdrv))) {
 		fprintf(stderr, "Failed to get emulated drive: %d\n", err);
 		goto fail_mount;
 	}
 
 	// Get wear leveling partition wrapper
-    if((err = ff_diskio_register_wl_partition(pdrv, wl_handle))) {
+	if((err = ff_diskio_register_wl_partition(pdrv, wl_handle))) {
 		fprintf(stderr, "Failed to get wear leveling wrapper for patition: %d\n", err);
 		goto fail_mount;
 	}
 
 	// Create fatfs partition table
-    if((fr_result = f_fdisk(pdrv, part_list, work_area))) {
+	if((fr_result = f_fdisk(pdrv, part_list, work_area))) {
 		err = fr_result;
 		fprintf(stderr, "Failed to create fatfs partition table: %d\n", err);
 		goto fail_mount;
@@ -254,14 +254,14 @@ int main(int argc, char** argv) {
 			goto fail_image_open;
 		}
 		offset += write_len;
-	} 
+	}
 
 	printf("Image complete\n");
 
 fail_image_open:
 	close(fd);
 fail_mount:
-    f_mount(0, "", 0);
+	f_mount(0, "", 0);
 fail:
-    return err;
+	return err;
 }
