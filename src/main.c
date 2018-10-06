@@ -238,7 +238,7 @@ int main(int argc, char** argv) {
 	const char* fatfs_image = "fatfs.img";
 
 	printf("Saving fatfs image to '%s'\n", fatfs_image);
-	if((fd = open(fatfs_image, O_RDWR | O_CREAT)) < 0) {
+	if((fd = open(fatfs_image, O_RDWR | O_CREAT, 0644)) < 0) {
 		err = errno;
 		fprintf(stderr, "Failed to open image file: %s(%d)\n", strerror(err), err);
 		goto fail_mount;
