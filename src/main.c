@@ -14,6 +14,9 @@
 #include "diskio_wl.h"
 #include "esp_spi_flash.h"
 
+#define MAX_PATH_LEN 256
+#define DEFAULT_IMAGE_DIR "image"
+
 extern void _spi_flash_init(const char* chip_size, size_t block_size, size_t sector_size, size_t page_size, const char* partition_bin);
 
 extern esp_err_t spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_memory_t memory, const void** out_ptr, spi_flash_mmap_handle_t* out_handle);
@@ -24,8 +27,6 @@ static esp_err_t fat_add_path(char* local_path, char* fat_path);
 
 #define DIRENT_FOR_EACH(cursor, dir) \
 	for((cursor) = readdir((dir)); (cursor); (cursor) = readdir((dir)))
-
-#define MAX_PATH_LEN 256
 
 static void pathcat(char* path, size_t path_len, char* base, char* name) {
 	memset(path, 0, path_len);
@@ -164,9 +165,15 @@ fail:
 
 }
 
+void show_usage(char* prgrm) {
+	fprintf(stderr, "Usage: %s [-c <fatfs directory>] <fatfs image name>\n", prgrm);
+	fprintf(stderr, "Options:\n");
+	fprintf(stderr, "\t -c <fatfs directory>\tSet directory to build fatfs from to <fatfs directory>. Defaults to '%s'\n", DEFAULT_IMAGE_DIR);
+};
+
 int main(int argc, char** argv) {
 	esp_err_t err;
-	int fd;
+	int fd, opt;
 	char* flash_ptr;
 	size_t offset = 0;
 	spi_flash_mmap_handle_t hndl;
@@ -178,6 +185,36 @@ int main(int argc, char** argv) {
 	DWORD part_list[] = {100, 0, 0, 0};
 	BYTE work_area[FF_MAX_SS];
 	const esp_partition_t* partition;
+
+	char* image_src_dir = DEFAULT_IMAGE_DIR;
+	const char* fatfs_image;
+
+	while((opt = getopt(argc, argv, "c:h")) >= 0) {
+		switch(opt) {
+			case 'c':
+				image_src_dir = strdup(optarg);
+				if(!image_src_dir) {
+					err = ENOMEM;
+					fprintf(stderr, "Failed to allocate memory for image_src_dir\n");
+					goto fail;
+				}
+				break;
+			case 'h':
+			default:
+				show_usage(argv[0]);
+				err = -1;
+				goto fail;
+		}
+	}
+
+	if(optind >= argc) {
+		fprintf(stderr, "Missing required positional argument <fatfs image name>\n");
+		show_usage(argv[0]);
+		err = -1;
+		goto fail;
+	}
+
+	fatfs_image = argv[optind];
 
 	_spi_flash_init(CONFIG_ESPTOOLPY_FLASHSIZE, CONFIG_WL_SECTOR_SIZE * 16, CONFIG_WL_SECTOR_SIZE, CONFIG_WL_SECTOR_SIZE, "partition_table.bin");
 
@@ -223,8 +260,8 @@ int main(int argc, char** argv) {
 	}
 
 	printf("Adding files:\n");
-	if((err = fat_add_directory_contents("image", ""))) {
-		fprintf(stderr, "Failed to add files to fat image: %d\n", err);
+	if((err = fat_add_directory_contents(image_src_dir, ""))) {
+		fprintf(stderr, "Failed to add files to fat image: %s(%d)\n", strerror(err), err);
 		goto fail_mount;
 
 	}
@@ -234,8 +271,6 @@ int main(int argc, char** argv) {
 
 	// Move pointer to start of data partition
 	flash_ptr += partition->address;
-
-	const char* fatfs_image = "fatfs.img";
 
 	printf("Saving fatfs image to '%s'\n", fatfs_image);
 	if((fd = open(fatfs_image, O_RDWR | O_CREAT, 0644)) < 0) {
