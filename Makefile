@@ -22,9 +22,6 @@ include Makefile.files
 
 all: mkfatfs
 
-# TODO Exterm^wEliminate
-# SDKCONFIG := sdkconfig
-
 ifndef SDKCONFIG
 SDKCONFIG_DIR := $(dir $(realpath sdkconfig/sdkconfig.h))
 SDKCONFIG := $(SDKCONFIG_DIR)sdkconfig.h
@@ -34,8 +31,8 @@ endif
 
 INCLUDE_FLAGS := $(addprefix -I, $(INCLUDE_DIRS) $(SDKCONFIG_DIR) $(IDF_PATH)/tools/catch)
 
-CPPFLAGS += $(INCLUDE_FLAGS) -g -m32
-CXXFLAGS += $(INCLUDE_FLAGS) -std=c++11 -g -m32
+CPPFLAGS += $(INCLUDE_FLAGS) -g -m32 -ggdb
+CXXFLAGS += $(INCLUDE_FLAGS) -std=c++11 -g -m32 -ggdb
 
 # Build libraries that this component is dependent on
 $(STUBS_LIB_BUILD_DIR)/$(STUBS_LIB): force
