@@ -21,8 +21,6 @@ extern void _spi_flash_init(const char* chip_size, size_t block_size, size_t sec
 
 extern esp_err_t spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_memory_t memory, const void** out_ptr, spi_flash_mmap_handle_t* out_handle);
 
-extern size_t convert_chip_size_string(const char* chip_size_str);
-
 static esp_err_t fat_add_path(char* local_path, char* fat_path);
 
 #define DIRENT_FOR_EACH(cursor, dir) \
