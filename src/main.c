@@ -145,7 +145,7 @@ static esp_err_t fat_add_path(char* local_path, char* fat_path) {
 	struct stat pathinfo;
 
 	if(stat(local_path, &pathinfo)) {
-		printf("Stat failed: %s(%d)\n", strerror(errno), errno);
+		fprintf(stderr, "Stat of '%s' failed: %s(%d)\n", local_path, strerror(errno), errno);
 		err = errno;
 		goto fail;
 	}
