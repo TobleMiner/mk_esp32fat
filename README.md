@@ -44,6 +44,14 @@ python2 "$IDF_PATH"/components/esptool_py/esptool/esptool.py --chip esp32 --port
 
 Depending on your partition layout you might have to update the address argument in above command
 
+### List of options
+```
+Usage: ./mkfatfs [-c <fatfs directory>] [-t <partition table>] [-l <partition label>] <fatfs image name>
+Options:
+	 -c <fatfs directory>	Set directory to build fatfs from to <fatfs directory>. Defaults to 'image'
+	 -t <partition table>	Set file to read partition table from to <partition table>. Defaults to 'partition_table.bin'
+	 -l <partition label>	Set label of partition from partition table to use to <partition label>. Defaults to 'storage'
+```
 
 # Limitations
 
