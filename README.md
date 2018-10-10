@@ -23,7 +23,7 @@ See section Limitations at the end of this docuemnt for limits on valid configur
 
 ## Building 
 
-Building the tool should be striaght forward. Just type `make`
+Building the tool should be straight forward. Just type `make`
 
 This will create the tool binary called `mkfatfs`
 
