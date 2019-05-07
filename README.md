@@ -10,7 +10,7 @@ This tool creates ESP32 fatfs images with wear levelling support.
 This tool requires esp-idf to be [set up properly](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/).
 If you do run into issues building the tool check that the environment variable `IDF_PATH` points to your installation directory of esp-idf.
 
-**IMPORTANT**: This tool is not quite compatible with the latest esp-idf master yet. Releases starting from esp-idf v3.2 up to and including esp-idf v3.3 will work just fine though.
+**IMPORTANT**: Please make sure you are using at recent version of esp-idf (at least v3.2).
 
 
 ## Configuration
