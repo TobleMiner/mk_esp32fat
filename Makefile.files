@@ -22,5 +22,6 @@ INCLUDE_DIRS := \
 	spi_flash/include \
 	wear_levelling/include \
 	fatfs/src \
-    fatfs/test_fatfs_host/sdkconfig \
+	fatfs/test_fatfs_host/sdkconfig \
+	esp_common/include \
 	)
