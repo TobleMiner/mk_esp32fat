@@ -44,6 +44,9 @@ python2 "$IDF_PATH"/components/esptool_py/esptool/esptool.py --chip esp32 --port
 
 Depending on your partition layout you might have to update the address argument in above command
 
+
+Issues? Check out the section Troubleshooting at the end of this document
+
 ### List of options
 ```
 Usage: ./mkfatfs [-c <fatfs directory>] [-t <partition table>] [-l <partition label>] <fatfs image name>
@@ -56,3 +59,9 @@ Options:
 # Limitations
 
 Currently this tool supports only sector sizes of 4096 because the flash mocking code of esp-idf is not suitable for other sector sizes
+
+# Troubleshooting
+
+## Truncated file names
+
+By default your fatfs might be set up to use short file names only. Please make sure to enable CONFIG_FATFS_LFN_HEAP or CONFIG_FATFS_LFN_STACK in menuconfig (thanks @sriharsha-rbnd for pointing this out)
